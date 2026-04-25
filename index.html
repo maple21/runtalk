@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RunCircle</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="map-pane" aria-label="주변 러너 지도">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">RunCircle</p>
+          <h1>내 주변 러너</h1>
+        </div>
+        <button class="icon-button" id="locateButton" type="button" aria-label="현재 위치 확인" title="현재 위치 확인">
+          <span aria-hidden="true">◎</span>
+        </button>
+      </header>
+
+      <div class="radius-control" role="group" aria-label="경쟁 반경 선택">
+        <button class="radius-option is-active" type="button" data-radius="1">1 km</button>
+        <button class="radius-option" type="button" data-radius="3">3 km</button>
+        <button class="radius-option" type="button" data-radius="5">5 km</button>
+      </div>
+
+      <div class="map-stage" id="mapStage">
+        <div class="road road-a"></div>
+        <div class="road road-b"></div>
+        <div class="road road-c"></div>
+        <div class="park park-a"></div>
+        <div class="park park-b"></div>
+        <div class="radius-ring radius-ring-outer"></div>
+        <div class="radius-ring radius-ring-mid"></div>
+        <div class="radius-ring radius-ring-inner"></div>
+        <button class="me-marker" id="meMarker" type="button" aria-label="내 위치">
+          <span></span>
+        </button>
+        <div id="runnerMarkers"></div>
+      </div>
+
+      <div class="location-card">
+        <div>
+          <span class="label">현재 위치</span>
+          <strong id="locationText">서울 성수동 기준 샘플</strong>
+        </div>
+        <span id="visibleCount">0명</span>
+      </div>
+    </section>
+
+    <aside class="side-pane" aria-label="러너 프로필">
+      <section class="panel leaderboard-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Weekly</p>
+            <h2>이번 주 경쟁</h2>
+          </div>
+          <span id="radiusLabel">1 km</span>
+        </div>
+        <div class="stats-grid">
+          <div>
+            <span>참여</span>
+            <strong id="statRunners">0</strong>
+          </div>
+          <div>
+            <span>평균 페이스</span>
+            <strong id="statPace">0'00"</strong>
+          </div>
+          <div>
+            <span>총 거리</span>
+            <strong id="statDistance">0 km</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Nearby</p>
+            <h2>주변 러너</h2>
+          </div>
+          <button class="text-button" id="sortButton" type="button">거리순</button>
+        </div>
+        <div class="runner-list" id="runnerList"></div>
+      </section>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
