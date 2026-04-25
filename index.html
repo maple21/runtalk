@@ -122,12 +122,15 @@
       </aside>
     </section>
 
-    <section class="app-view my-view" id="myView" aria-label="내 설정">
+    <section class="app-view my-view" id="myView" aria-label="내 기록">
       <header class="topbar">
         <div>
           <p class="eyebrow">My</p>
-          <h1>설정</h1>
+          <h1>나의 기록</h1>
         </div>
+        <button class="icon-button" id="openSettingsButton" type="button" aria-label="설정 열기" title="설정">
+          <span aria-hidden="true">⚙</span>
+        </button>
       </header>
 
       <section class="panel profile-panel">
@@ -199,6 +202,18 @@
           </div>
         </div>
       </section>
+    </section>
+
+    <section class="app-view settings-view" id="settingsView" aria-label="설정">
+      <header class="topbar">
+        <button class="icon-button" id="closeSettingsButton" type="button" aria-label="My로 돌아가기" title="My로 돌아가기">
+          <span aria-hidden="true">‹</span>
+        </button>
+        <div>
+          <p class="eyebrow">Settings</p>
+          <h1>설정</h1>
+        </div>
+      </header>
 
       <section class="panel map-settings">
         <div class="panel-heading">
@@ -230,7 +245,7 @@
       <section class="panel settings-list" aria-label="앱 설정">
         <button class="settings-row" type="button">
           <span>위치 공개</span>
-          <strong>주변 러너에게 표시</strong>
+          <strong id="settingPrivacyText">주변 러너에게 표시</strong>
         </button>
         <button class="settings-row" type="button">
           <span>경쟁 반경 기본값</span>
@@ -242,7 +257,7 @@
         </button>
         <button class="settings-row" type="button">
           <span>알림</span>
-          <strong>주간 랭킹 변화</strong>
+          <strong id="settingNotificationText">주간 랭킹 변화</strong>
         </button>
       </section>
     </section>

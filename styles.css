@@ -59,13 +59,15 @@ button {
 }
 
 .ranking-view,
-.my-view {
+.my-view,
+.settings-view {
   width: min(720px, 100%);
   margin: 0 auto;
 }
 
 .ranking-view.is-active,
-.my-view.is-active {
+.my-view.is-active,
+.settings-view.is-active {
   display: grid;
   gap: 12px;
 }
@@ -103,6 +105,10 @@ button {
   gap: 12px;
   min-height: 76px;
   padding: 16px;
+}
+
+.settings-view .topbar {
+  justify-content: flex-start;
 }
 
 .eyebrow {

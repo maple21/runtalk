@@ -7,6 +7,15 @@ const radiusFillLayerId = "competition-radius-fill";
 const radiusLineLayerId = "competition-radius-line";
 const maxVisibleRunners = 7;
 const maxWeeklyRivalRequests = 3;
+const appSettings = {
+  mapStyles: [
+    { label: "거리", value: "mapbox://styles/mapbox/streets-v12" },
+    { label: "아웃도어", value: "mapbox://styles/mapbox/outdoors-v12" },
+    { label: "위성", value: "mapbox://styles/mapbox/satellite-streets-v12" }
+  ],
+  privacy: "주변 러너에게 표시",
+  notifications: "주간 랭킹 변화"
+};
 
 const runners = [
   { id: 1, name: "민서", icon: "M", color: "#286fdd", distance: 0.42, pace: 326, weeklyKm: 28.4, angle: -38 },
@@ -72,11 +81,15 @@ const locationText = document.querySelector("#locationText");
 const locateButton = document.querySelector("#locateButton");
 const sortButton = document.querySelector("#sortButton");
 const refreshRunnersButton = document.querySelector("#refreshRunnersButton");
+const openSettingsButton = document.querySelector("#openSettingsButton");
+const closeSettingsButton = document.querySelector("#closeSettingsButton");
 const zoomInButton = document.querySelector("#zoomInButton");
 const zoomOutButton = document.querySelector("#zoomOutButton");
 const fitButton = document.querySelector("#fitButton");
 const defaultRadiusText = document.querySelector("#defaultRadiusText");
 const rivalQuotaText = document.querySelector("#rivalQuotaText");
+const settingPrivacyText = document.querySelector("#settingPrivacyText");
+const settingNotificationText = document.querySelector("#settingNotificationText");
 const myDistanceValue = document.querySelector("#myDistanceValue");
 const myRunDaysValue = document.querySelector("#myRunDaysValue");
 const myPaceValue = document.querySelector("#myPaceValue");
@@ -695,6 +708,8 @@ function renderStats(visible) {
   refreshRunnersButton.disabled = !canRefreshRunners();
   defaultRadiusText.textContent = `${selectedRadius} km`;
   rivalQuotaText.textContent = `${getRemainingRivalRequests()}/${maxWeeklyRivalRequests}`;
+  settingPrivacyText.textContent = appSettings.privacy;
+  settingNotificationText.textContent = appSettings.notifications;
 }
 
 function renderMyStats() {
@@ -742,6 +757,22 @@ function renderMetricTrend(target, values, unit) {
     point.title = `${value || 0}${unit}`;
     target.appendChild(point);
   });
+}
+
+function showAppView(viewId) {
+  document.querySelectorAll(".app-view").forEach((view) => {
+    view.classList.toggle("is-active", view.id === viewId);
+  });
+  document.querySelectorAll(".bottom-nav-item").forEach((item) => {
+    item.classList.toggle("is-active", item.dataset.view === viewId);
+  });
+
+  if (viewId === "discoverView" && mapboxReady && map) {
+    setTimeout(() => {
+      map.resize();
+      fitToRadius();
+    }, 60);
+  }
 }
 
 function renderRanking() {
@@ -811,19 +842,16 @@ document.querySelectorAll(".ranking-tab").forEach((button) => {
 
 document.querySelectorAll(".bottom-nav-item").forEach((button) => {
   button.addEventListener("click", () => {
-    document.querySelectorAll(".bottom-nav-item").forEach((item) => {
-      item.classList.toggle("is-active", item === button);
-    });
-    document.querySelectorAll(".app-view").forEach((view) => {
-      view.classList.toggle("is-active", view.id === button.dataset.view);
-    });
-    if (button.dataset.view === "discoverView" && mapboxReady && map) {
-      setTimeout(() => {
-        map.resize();
-        fitToRadius();
-      }, 60);
-    }
+    showAppView(button.dataset.view);
   });
+});
+
+openSettingsButton.addEventListener("click", () => {
+  showAppView("settingsView");
+});
+
+closeSettingsButton.addEventListener("click", () => {
+  showAppView("myView");
 });
 
 document.querySelectorAll(".map-type-option").forEach((button) => {
