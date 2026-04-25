@@ -1,5 +1,9 @@
 const basePosition = { lat: 37.5446, lng: 127.0557 };
-const storageKey = "runcircle.googleMapsApiKey";
+const storageKey = "runcircle.mapboxAccessToken";
+const defaultMapStyle = "mapbox://styles/mapbox/streets-v12";
+const radiusSourceId = "competition-radius";
+const radiusFillLayerId = "competition-radius-fill";
+const radiusLineLayerId = "competition-radius-line";
 
 const runners = [
   { id: 1, name: "민서", icon: "M", color: "#286fdd", distance: 0.42, pace: 326, weeklyKm: 28.4, angle: -38 },
@@ -16,12 +20,10 @@ let selectedRadius = 1;
 let selectedRunnerId = 1;
 let sortMode = "distance";
 let currentPosition = basePosition;
+let activeMapStyle = defaultMapStyle;
 let map;
-let infoWindow;
-let radiusCircle;
 let meMarker;
-let AdvancedMarkerElement;
-let googleReady = false;
+let mapboxReady = false;
 let mapLoadError = false;
 const runnerMarkers = new Map();
 
@@ -58,6 +60,10 @@ function offsetPosition(origin, distanceKm, angleDegree) {
   };
 }
 
+function toLngLat(position) {
+  return [position.lng, position.lat];
+}
+
 function getVisibleRunners() {
   const visible = runners.filter((runner) => runner.distance <= selectedRadius);
   return [...visible].sort((a, b) => {
@@ -68,11 +74,37 @@ function getVisibleRunners() {
   });
 }
 
+function createCircleGeoJson(center, radiusKm, points = 96) {
+  const coordinates = [];
+  for (let i = 0; i <= points; i += 1) {
+    const angle = (i / points) * 360;
+    const point = offsetPosition(center, radiusKm, angle);
+    coordinates.push(toLngLat(point));
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [coordinates]
+        },
+        properties: {}
+      }
+    ]
+  };
+}
+
 function createMarkerContent(runner, selected = false) {
-  const marker = document.createElement("div");
+  const marker = document.createElement("button");
+  marker.type = "button";
   marker.className = `map-runner-pin${selected ? " is-selected" : ""}`;
   marker.style.background = runner.color;
   marker.textContent = runner.icon;
+  marker.setAttribute("aria-label", `${runner.name} 러너`);
+  marker.addEventListener("click", () => selectRunner(runner.id, true));
   return marker;
 }
 
@@ -83,144 +115,198 @@ function createMeMarkerContent() {
   return marker;
 }
 
-async function initGoogleMap() {
-  const { Map } = await google.maps.importLibrary("maps");
-  const markerLibrary = await google.maps.importLibrary("marker");
-  AdvancedMarkerElement = markerLibrary.AdvancedMarkerElement;
+function loadMapboxAssets() {
+  if (window.mapboxgl) {
+    return Promise.resolve();
+  }
 
-  map = new Map(mapCanvas, {
-    center: currentPosition,
-    zoom: 14,
-    mapId: "DEMO_MAP_ID",
-    clickableIcons: false,
-    fullscreenControl: false,
-    streetViewControl: false,
-    mapTypeControl: false,
-    zoomControl: false
+  return new Promise((resolve, reject) => {
+    const stylesheet = document.createElement("link");
+    stylesheet.rel = "stylesheet";
+    stylesheet.href = "https://api.mapbox.com/mapbox-gl-js/v3.20.0/mapbox-gl.css";
+    document.head.appendChild(stylesheet);
+
+    const script = document.createElement("script");
+    script.src = "https://api.mapbox.com/mapbox-gl-js/v3.20.0/mapbox-gl.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Mapbox GL JS failed to load"));
+    document.head.appendChild(script);
   });
-
-  infoWindow = new google.maps.InfoWindow();
-  radiusCircle = new google.maps.Circle({
-    map,
-    center: currentPosition,
-    radius: selectedRadius * 1000,
-    strokeColor: "#2f8f5b",
-    strokeOpacity: 0.65,
-    strokeWeight: 2,
-    fillColor: "#2f8f5b",
-    fillOpacity: 0.1
-  });
-
-  meMarker = new AdvancedMarkerElement({
-    map,
-    position: currentPosition,
-    title: "내 위치",
-    content: createMeMarkerContent(),
-    zIndex: 100
-  });
-
-  googleReady = true;
-  mapFallback.classList.add("is-hidden");
-  render();
-  fitToRadius();
 }
 
-function loadGoogleMaps(apiKey) {
-  if (!apiKey) {
+async function loadMapbox(accessToken) {
+  if (!accessToken) {
     mapFallback.classList.remove("is-hidden");
     return;
   }
 
-  if (window.google?.maps) {
-    initGoogleMap().catch(showMapError);
-    return;
+  try {
+    await loadMapboxAssets();
+    initMapbox(accessToken);
+  } catch {
+    showMapError();
   }
+}
 
-  window.initRunCircleMap = () => initGoogleMap().catch(showMapError);
-  const script = document.createElement("script");
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&callback=initRunCircleMap`;
-  script.async = true;
-  script.defer = true;
-  script.onerror = () => showMapError();
-  document.head.appendChild(script);
+function initMapbox(accessToken) {
+  mapboxgl.accessToken = accessToken;
+  map = new mapboxgl.Map({
+    container: mapCanvas,
+    style: activeMapStyle,
+    center: toLngLat(currentPosition),
+    zoom: 14,
+    pitch: 20,
+    attributionControl: true
+  });
+
+  map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "bottom-right");
+  map.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
+
+  map.on("load", () => {
+    mapboxReady = true;
+    mapFallback.classList.add("is-hidden");
+    meMarker = new mapboxgl.Marker({ element: createMeMarkerContent(), anchor: "center" })
+      .setLngLat(toLngLat(currentPosition))
+      .addTo(map);
+    render();
+    fitToRadius();
+  });
+
+  map.on("style.load", () => {
+    if (mapboxReady) {
+      drawRadiusLayer();
+    }
+  });
+
+  map.on("error", () => {
+    if (!mapboxReady) {
+      showMapError();
+    }
+  });
 }
 
 function showMapError() {
   mapLoadError = true;
-  googleReady = false;
+  mapboxReady = false;
   mapFallback.classList.remove("is-hidden");
   mapFallback.querySelector("h2").textContent = "지도를 불러오지 못했습니다";
-  mapFallback.querySelector("p:not(.eyebrow)").textContent = "API 키, 결제 설정, 도메인 제한 또는 네트워크 상태를 확인해 주세요.";
+  mapFallback.querySelector("p:not(.eyebrow)").textContent = "Access Token, URL 제한 또는 네트워크 상태를 확인해 주세요.";
 }
 
-function updateMap(visible) {
-  if (!googleReady || !map) {
+function drawRadiusLayer() {
+  if (!mapboxReady || !map || !map.isStyleLoaded()) {
     return;
   }
 
-  radiusCircle.setCenter(currentPosition);
-  radiusCircle.setRadius(selectedRadius * 1000);
-  meMarker.position = currentPosition;
+  const radiusData = createCircleGeoJson(currentPosition, selectedRadius);
+  if (map.getSource(radiusSourceId)) {
+    map.getSource(radiusSourceId).setData(radiusData);
+    return;
+  }
+
+  map.addSource(radiusSourceId, {
+    type: "geojson",
+    data: radiusData
+  });
+
+  map.addLayer({
+    id: radiusFillLayerId,
+    type: "fill",
+    source: radiusSourceId,
+    paint: {
+      "fill-color": "#2f8f5b",
+      "fill-opacity": 0.12
+    }
+  });
+
+  map.addLayer({
+    id: radiusLineLayerId,
+    type: "line",
+    source: radiusSourceId,
+    paint: {
+      "line-color": "#2f8f5b",
+      "line-width": 2,
+      "line-opacity": 0.75
+    }
+  });
+}
+
+function updateMap(visible) {
+  if (!mapboxReady || !map) {
+    return;
+  }
+
+  drawRadiusLayer();
+  if (meMarker) {
+    meMarker.setLngLat(toLngLat(currentPosition));
+  }
 
   runnerMarkers.forEach((marker, id) => {
     if (!visible.some((runner) => runner.id === id)) {
-      marker.map = null;
+      marker.remove();
       runnerMarkers.delete(id);
     }
   });
 
   visible.forEach((runner) => {
-    const content = createMarkerContent(runner, runner.id === selectedRunnerId);
+    const markerElement = createMarkerContent(runner, runner.id === selectedRunnerId);
     const existing = runnerMarkers.get(runner.id);
     if (existing) {
-      existing.content = content;
-      existing.map = map;
-      existing.position = runner.position;
+      existing.remove();
+      runnerMarkers.set(runner.id, new mapboxgl.Marker({ element: markerElement, anchor: "center" })
+        .setLngLat(toLngLat(runner.position))
+        .setPopup(createRunnerPopup(runner))
+        .addTo(map));
       return;
     }
 
-    const marker = new AdvancedMarkerElement({
-      map,
-      position: runner.position,
-      title: `${runner.name} 러너`,
-      content
-    });
-    marker.addListener("click", () => selectRunner(runner.id, true));
+    const marker = new mapboxgl.Marker({ element: markerElement, anchor: "center" })
+      .setLngLat(toLngLat(runner.position))
+      .setPopup(createRunnerPopup(runner))
+      .addTo(map);
     runnerMarkers.set(runner.id, marker);
   });
 }
 
+function createRunnerPopup(runner) {
+  return new mapboxgl.Popup({ offset: 24, closeButton: false })
+    .setHTML(`
+      <div class="info-window">
+        <strong>${runner.name}</strong>
+        <span>${runner.distance.toFixed(2)} km 근처</span>
+        <span>${formatPace(runner.pace)}/km · 주간 ${runner.weeklyKm.toFixed(1)} km</span>
+      </div>
+    `);
+}
+
 function openRunnerInfo(runner) {
-  if (!googleReady || !infoWindow || !map) {
+  if (!mapboxReady || !map) {
     return;
   }
 
-  infoWindow.setContent(`
-    <div class="info-window">
-      <strong>${runner.name}</strong>
-      <span>${runner.distance.toFixed(2)} km 근처</span>
-      <span>${formatPace(runner.pace)}/km · 주간 ${runner.weeklyKm.toFixed(1)} km</span>
-    </div>
-  `);
-  infoWindow.open({
-    anchor: runnerMarkers.get(runner.id),
-    map
+  const marker = runnerMarkers.get(runner.id);
+  if (marker) {
+    marker.togglePopup();
+  }
+  map.flyTo({
+    center: toLngLat(runner.position),
+    zoom: Math.max(map.getZoom(), 14.5),
+    essential: true
   });
-  map.panTo(runner.position);
 }
 
 function fitToRadius() {
-  if (!googleReady || !map) {
+  if (!mapboxReady || !map) {
     return;
   }
 
-  const radiusInDegrees = selectedRadius / 111.32;
-  const lngDelta = radiusInDegrees / Math.cos(currentPosition.lat * Math.PI / 180);
-  const bounds = new google.maps.LatLngBounds(
-    { lat: currentPosition.lat - radiusInDegrees, lng: currentPosition.lng - lngDelta },
-    { lat: currentPosition.lat + radiusInDegrees, lng: currentPosition.lng + lngDelta }
-  );
-  map.fitBounds(bounds, 64);
+  const north = offsetPosition(currentPosition, selectedRadius, 0);
+  const east = offsetPosition(currentPosition, selectedRadius, 90);
+  const south = offsetPosition(currentPosition, selectedRadius, 180);
+  const west = offsetPosition(currentPosition, selectedRadius, 270);
+  const bounds = new mapboxgl.LngLatBounds([west.lng, south.lat], [east.lng, north.lat]);
+  map.fitBounds(bounds, { padding: 72, duration: 650, maxZoom: 15 });
 }
 
 function renderList(visible) {
@@ -296,8 +382,9 @@ document.querySelectorAll(".map-type-option").forEach((button) => {
     document.querySelectorAll(".map-type-option").forEach((option) => {
       option.classList.toggle("is-active", option === button);
     });
-    if (googleReady && map) {
-      map.setMapTypeId(button.dataset.mapType);
+    activeMapStyle = button.dataset.mapStyle;
+    if (mapboxReady && map) {
+      map.setStyle(activeMapStyle);
     }
   });
 });
@@ -309,14 +396,14 @@ sortButton.addEventListener("click", () => {
 });
 
 zoomInButton.addEventListener("click", () => {
-  if (googleReady && map) {
-    map.setZoom(map.getZoom() + 1);
+  if (mapboxReady && map) {
+    map.zoomIn({ duration: 250 });
   }
 });
 
 zoomOutButton.addEventListener("click", () => {
-  if (googleReady && map) {
-    map.setZoom(map.getZoom() - 1);
+  if (mapboxReady && map) {
+    map.zoomOut({ duration: 250 });
   }
 });
 
@@ -334,8 +421,8 @@ locateButton.addEventListener("click", () => {
       const { latitude, longitude } = position.coords;
       currentPosition = { lat: latitude, lng: longitude };
       locationText.textContent = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-      if (googleReady && map) {
-        map.panTo(currentPosition);
+      if (mapboxReady && map) {
+        map.flyTo({ center: toLngLat(currentPosition), zoom: 14, essential: true });
         render();
         fitToRadius();
       }
@@ -349,17 +436,17 @@ locateButton.addEventListener("click", () => {
 
 apiKeyForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const apiKey = apiKeyInput.value.trim();
-  if (!apiKey) {
+  const accessToken = apiKeyInput.value.trim();
+  if (!accessToken) {
     return;
   }
-  localStorage.setItem(storageKey, apiKey);
+  localStorage.setItem(storageKey, accessToken);
   if (mapLoadError) {
     window.location.reload();
     return;
   }
-  loadGoogleMaps(apiKey);
+  loadMapbox(accessToken);
 });
 
 render();
-loadGoogleMaps(localStorage.getItem(storageKey));
+loadMapbox(localStorage.getItem(storageKey));

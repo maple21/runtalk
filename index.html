@@ -26,15 +26,15 @@
       </div>
 
       <div class="map-stage" id="mapStage">
-        <div class="map-canvas" id="mapCanvas" aria-label="Google 지도"></div>
+        <div class="map-canvas" id="mapCanvas" aria-label="Mapbox 지도"></div>
         <div class="map-fallback" id="mapFallback">
           <div>
-            <p class="eyebrow">Google Maps</p>
-            <h2>API 키를 입력하면 실제 지도가 표시됩니다</h2>
+            <p class="eyebrow">Mapbox</p>
+            <h2>Access Token을 입력하면 실제 지도가 표시됩니다</h2>
             <p>확대/축소, 내 위치 이동, 반경 원, 러너 핀과 정보창이 활성화됩니다.</p>
           </div>
           <form class="api-key-form" id="apiKeyForm">
-            <input id="apiKeyInput" type="password" autocomplete="off" placeholder="Google Maps JavaScript API Key">
+            <input id="apiKeyInput" type="password" autocomplete="off" placeholder="Mapbox public access token">
             <button class="text-button" type="submit">적용</button>
           </form>
         </div>
@@ -98,9 +98,9 @@
           </div>
         </div>
         <div class="map-type-control" role="group" aria-label="지도 유형 선택">
-          <button class="map-type-option is-active" type="button" data-map-type="roadmap">일반</button>
-          <button class="map-type-option" type="button" data-map-type="satellite">위성</button>
-          <button class="map-type-option" type="button" data-map-type="terrain">지형</button>
+          <button class="map-type-option is-active" type="button" data-map-style="mapbox://styles/mapbox/streets-v12">거리</button>
+          <button class="map-type-option" type="button" data-map-style="mapbox://styles/mapbox/outdoors-v12">아웃도어</button>
+          <button class="map-type-option" type="button" data-map-style="mapbox://styles/mapbox/satellite-streets-v12">위성</button>
         </div>
       </section>
     </aside>
