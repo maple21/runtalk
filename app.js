@@ -4,21 +4,28 @@ const defaultMapStyle = "mapbox://styles/mapbox/streets-v12";
 const radiusSourceId = "competition-radius";
 const radiusFillLayerId = "competition-radius-fill";
 const radiusLineLayerId = "competition-radius-line";
+const maxVisibleRunners = 7;
 
 const runners = [
   { id: 1, name: "민서", icon: "M", color: "#286fdd", distance: 0.42, pace: 326, weeklyKm: 28.4, angle: -38 },
   { id: 2, name: "준호", icon: "J", color: "#ff6f61", distance: 0.84, pace: 348, weeklyKm: 21.8, angle: 74 },
-  { id: 3, name: "소윤", icon: "S", color: "#2f8f5b", distance: 1.36, pace: 312, weeklyKm: 35.1, angle: 142 },
-  { id: 4, name: "태오", icon: "T", color: "#8b5cf6", distance: 2.1, pace: 402, weeklyKm: 16.2, angle: 210 },
-  { id: 5, name: "하린", icon: "H", color: "#f3b83f", distance: 2.76, pace: 371, weeklyKm: 25.7, angle: 306 },
-  { id: 6, name: "지우", icon: "Z", color: "#111827", distance: 3.42, pace: 339, weeklyKm: 31.5, angle: 18 },
-  { id: 7, name: "유나", icon: "Y", color: "#0f9f9a", distance: 4.18, pace: 421, weeklyKm: 12.8, angle: 255 },
-  { id: 8, name: "도현", icon: "D", color: "#e4572e", distance: 4.72, pace: 365, weeklyKm: 18.4, angle: 118 }
+  { id: 3, name: "라온", icon: "R", color: "#0f9f9a", distance: 0.93, pace: 371, weeklyKm: 18.2, angle: 154 },
+  { id: 4, name: "소윤", icon: "S", color: "#2f8f5b", distance: 1.36, pace: 312, weeklyKm: 35.1, angle: 142 },
+  { id: 5, name: "태오", icon: "T", color: "#8b5cf6", distance: 2.1, pace: 402, weeklyKm: 16.2, angle: 210 },
+  { id: 6, name: "하린", icon: "H", color: "#f3b83f", distance: 2.76, pace: 371, weeklyKm: 25.7, angle: 306 },
+  { id: 7, name: "지우", icon: "Z", color: "#111827", distance: 3.42, pace: 339, weeklyKm: 31.5, angle: 18 },
+  { id: 8, name: "유나", icon: "Y", color: "#0f9f9a", distance: 4.18, pace: 421, weeklyKm: 12.8, angle: 255 },
+  { id: 9, name: "도현", icon: "D", color: "#e4572e", distance: 4.72, pace: 365, weeklyKm: 18.4, angle: 118 },
+  { id: 10, name: "서진", icon: "A", color: "#14b8a6", distance: 1.72, pace: 354, weeklyKm: 24.9, angle: 32 },
+  { id: 11, name: "나은", icon: "N", color: "#dc2626", distance: 2.44, pace: 388, weeklyKm: 19.6, angle: 248 },
+  { id: 12, name: "현우", icon: "W", color: "#4f46e5", distance: 3.86, pace: 331, weeklyKm: 29.7, angle: 282 },
+  { id: 13, name: "채린", icon: "C", color: "#be185d", distance: 4.56, pace: 414, weeklyKm: 14.3, angle: 61 }
 ].map((runner) => ({ ...runner, position: offsetPosition(basePosition, runner.distance, runner.angle) }));
 
 let selectedRadius = 1;
 let selectedRunnerId = 1;
 let sortMode = "distance";
+let runnerPage = 0;
 let currentPosition = basePosition;
 let activeMapStyle = defaultMapStyle;
 let map;
@@ -40,6 +47,7 @@ const statDistance = document.querySelector("#statDistance");
 const locationText = document.querySelector("#locationText");
 const locateButton = document.querySelector("#locateButton");
 const sortButton = document.querySelector("#sortButton");
+const refreshRunnersButton = document.querySelector("#refreshRunnersButton");
 const zoomInButton = document.querySelector("#zoomInButton");
 const zoomOutButton = document.querySelector("#zoomOutButton");
 const fitButton = document.querySelector("#fitButton");
@@ -64,13 +72,25 @@ function toLngLat(position) {
   return [position.lng, position.lat];
 }
 
-function getVisibleRunners() {
+function getSortedCandidates() {
   const visible = runners.filter((runner) => runner.distance <= selectedRadius);
   return [...visible].sort((a, b) => {
     if (sortMode === "weekly") {
       return b.weeklyKm - a.weeklyKm;
     }
     return a.distance - b.distance;
+  });
+}
+
+function getVisibleRunners() {
+  const candidates = getSortedCandidates();
+  if (candidates.length <= maxVisibleRunners) {
+    return candidates;
+  }
+
+  const start = (runnerPage * maxVisibleRunners) % candidates.length;
+  return Array.from({ length: maxVisibleRunners }, (_, index) => {
+    return candidates[(start + index) % candidates.length];
   });
 }
 
@@ -335,16 +355,18 @@ function renderList(visible) {
 }
 
 function renderStats(visible) {
-  const totalDistance = visible.reduce((sum, runner) => sum + runner.weeklyKm, 0);
-  const averagePace = visible.length
-    ? Math.round(visible.reduce((sum, runner) => sum + runner.pace, 0) / visible.length)
+  const candidates = getSortedCandidates();
+  const totalDistance = candidates.reduce((sum, runner) => sum + runner.weeklyKm, 0);
+  const averagePace = candidates.length
+    ? Math.round(candidates.reduce((sum, runner) => sum + runner.pace, 0) / candidates.length)
     : 0;
 
   radiusLabel.textContent = `${selectedRadius} km`;
-  visibleCount.textContent = `${visible.length}명`;
-  statRunners.textContent = String(visible.length);
-  statPace.textContent = visible.length ? formatPace(averagePace) : "0'00\"";
+  visibleCount.textContent = `${visible.length}/${candidates.length}명`;
+  statRunners.textContent = String(candidates.length);
+  statPace.textContent = candidates.length ? formatPace(averagePace) : "0'00\"";
   statDistance.textContent = `${totalDistance.toFixed(1)} km`;
+  refreshRunnersButton.disabled = candidates.length <= maxVisibleRunners;
 }
 
 function render() {
@@ -369,6 +391,7 @@ function selectRunner(id, focusMap = false) {
 document.querySelectorAll(".radius-option").forEach((button) => {
   button.addEventListener("click", () => {
     selectedRadius = Number(button.dataset.radius);
+    runnerPage = 0;
     document.querySelectorAll(".radius-option").forEach((option) => {
       option.classList.toggle("is-active", option === button);
     });
@@ -391,7 +414,13 @@ document.querySelectorAll(".map-type-option").forEach((button) => {
 
 sortButton.addEventListener("click", () => {
   sortMode = sortMode === "distance" ? "weekly" : "distance";
+  runnerPage = 0;
   sortButton.textContent = sortMode === "distance" ? "거리순" : "주간순";
+  render();
+});
+
+refreshRunnersButton.addEventListener("click", () => {
+  runnerPage += 1;
   render();
 });
 
