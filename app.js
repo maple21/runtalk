@@ -26,6 +26,7 @@ let selectedRadius = 1;
 let selectedRunnerId = 1;
 let sortMode = "distance";
 let runnerPage = 0;
+let selectedRankingRadius = 1;
 let currentPosition = basePosition;
 let activeMapStyle = defaultMapStyle;
 let map;
@@ -38,7 +39,12 @@ const mapCanvas = document.querySelector("#mapCanvas");
 const mapFallback = document.querySelector("#mapFallback");
 const apiKeyForm = document.querySelector("#apiKeyForm");
 const apiKeyInput = document.querySelector("#apiKeyInput");
+const settingsTokenForm = document.querySelector("#settingsTokenForm");
+const settingsTokenInput = document.querySelector("#settingsTokenInput");
 const runnerList = document.querySelector("#runnerList");
+const rankingList = document.querySelector("#rankingList");
+const rankingTitle = document.querySelector("#rankingTitle");
+const rankingCount = document.querySelector("#rankingCount");
 const radiusLabel = document.querySelector("#radiusLabel");
 const visibleCount = document.querySelector("#visibleCount");
 const statRunners = document.querySelector("#statRunners");
@@ -51,6 +57,7 @@ const refreshRunnersButton = document.querySelector("#refreshRunnersButton");
 const zoomInButton = document.querySelector("#zoomInButton");
 const zoomOutButton = document.querySelector("#zoomOutButton");
 const fitButton = document.querySelector("#fitButton");
+const defaultRadiusText = document.querySelector("#defaultRadiusText");
 
 function formatPace(seconds) {
   const minutes = Math.floor(seconds / 60);
@@ -80,6 +87,12 @@ function getSortedCandidates() {
     }
     return a.distance - b.distance;
   });
+}
+
+function getRankingRunners(radius) {
+  return runners
+    .filter((runner) => runner.distance <= radius)
+    .sort((a, b) => b.weeklyKm - a.weeklyKm);
 }
 
 function getVisibleRunners() {
@@ -367,6 +380,29 @@ function renderStats(visible) {
   statPace.textContent = candidates.length ? formatPace(averagePace) : "0'00\"";
   statDistance.textContent = `${totalDistance.toFixed(1)} km`;
   refreshRunnersButton.disabled = candidates.length <= maxVisibleRunners;
+  defaultRadiusText.textContent = `${selectedRadius} km`;
+}
+
+function renderRanking() {
+  const ranked = getRankingRunners(selectedRankingRadius);
+  rankingTitle.textContent = `${selectedRankingRadius} km 랭킹`;
+  rankingCount.textContent = `${ranked.length}명`;
+  rankingList.innerHTML = "";
+
+  ranked.forEach((runner, index) => {
+    const item = document.createElement("article");
+    item.className = "ranking-item";
+    item.innerHTML = `
+      <span class="ranking-place">${index + 1}</span>
+      <div class="avatar" style="background:${runner.color}">${runner.icon}</div>
+      <div>
+        <h3>${runner.name}</h3>
+        <p>${runner.distance.toFixed(2)} km · ${formatPace(runner.pace)}/km</p>
+      </div>
+      <strong>${runner.weeklyKm.toFixed(1)} km</strong>
+    `;
+    rankingList.appendChild(item);
+  });
 }
 
 function render() {
@@ -376,6 +412,7 @@ function render() {
   }
   renderList(visible);
   renderStats(visible);
+  renderRanking();
   updateMap(visible);
 }
 
@@ -397,6 +434,33 @@ document.querySelectorAll(".radius-option").forEach((button) => {
     });
     render();
     fitToRadius();
+  });
+});
+
+document.querySelectorAll(".ranking-tab").forEach((button) => {
+  button.addEventListener("click", () => {
+    selectedRankingRadius = Number(button.dataset.rankingRadius);
+    document.querySelectorAll(".ranking-tab").forEach((option) => {
+      option.classList.toggle("is-active", option === button);
+    });
+    renderRanking();
+  });
+});
+
+document.querySelectorAll(".bottom-nav-item").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".bottom-nav-item").forEach((item) => {
+      item.classList.toggle("is-active", item === button);
+    });
+    document.querySelectorAll(".app-view").forEach((view) => {
+      view.classList.toggle("is-active", view.id === button.dataset.view);
+    });
+    if (button.dataset.view === "discoverView" && mapboxReady && map) {
+      setTimeout(() => {
+        map.resize();
+        fitToRadius();
+      }, 60);
+    }
   });
 });
 
@@ -477,5 +541,25 @@ apiKeyForm.addEventListener("submit", (event) => {
   loadMapbox(accessToken);
 });
 
+settingsTokenForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const accessToken = settingsTokenInput.value.trim();
+  if (!accessToken) {
+    return;
+  }
+  localStorage.setItem(storageKey, accessToken);
+  apiKeyInput.value = accessToken;
+  if (mapLoadError || mapboxReady) {
+    window.location.reload();
+    return;
+  }
+  loadMapbox(accessToken);
+});
+
 render();
-loadMapbox(localStorage.getItem(storageKey));
+const storedAccessToken = localStorage.getItem(storageKey);
+if (storedAccessToken) {
+  apiKeyInput.value = storedAccessToken;
+  settingsTokenInput.value = storedAccessToken;
+}
+loadMapbox(storedAccessToken);

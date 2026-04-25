@@ -8,96 +8,143 @@
 </head>
 <body>
   <main class="app-shell">
-    <section class="map-pane" aria-label="주변 러너 지도">
+    <section class="app-view ranking-view" id="rankingView" aria-label="반경별 랭킹">
       <header class="topbar">
         <div>
-          <p class="eyebrow">RunCircle</p>
-          <h1>내 주변 러너</h1>
+          <p class="eyebrow">Ranking</p>
+          <h1>주간 랭킹</h1>
         </div>
-        <button class="icon-button" id="locateButton" type="button" aria-label="현재 위치 확인" title="현재 위치 확인">
-          <span aria-hidden="true">◎</span>
-        </button>
       </header>
 
-      <div class="radius-control" role="group" aria-label="경쟁 반경 선택">
-        <button class="radius-option is-active" type="button" data-radius="1">1 km</button>
-        <button class="radius-option" type="button" data-radius="3">3 km</button>
-        <button class="radius-option" type="button" data-radius="5">5 km</button>
+      <div class="ranking-tabs" role="group" aria-label="랭킹 반경 선택">
+        <button class="ranking-tab is-active" type="button" data-ranking-radius="1">1 km</button>
+        <button class="ranking-tab" type="button" data-ranking-radius="3">3 km</button>
+        <button class="ranking-tab" type="button" data-ranking-radius="5">5 km</button>
       </div>
 
-      <div class="map-stage" id="mapStage">
-        <div class="map-canvas" id="mapCanvas" aria-label="Mapbox 지도"></div>
-        <div class="map-fallback" id="mapFallback">
-          <div>
-            <p class="eyebrow">Mapbox</p>
-            <h2>Access Token을 입력하면 실제 지도가 표시됩니다</h2>
-            <p>확대/축소, 내 위치 이동, 반경 원, 러너 핀과 정보창이 활성화됩니다.</p>
-          </div>
-          <form class="api-key-form" id="apiKeyForm">
-            <input id="apiKeyInput" type="password" autocomplete="off" placeholder="Mapbox public access token">
-            <button class="text-button" type="submit">적용</button>
-          </form>
-        </div>
-        <div class="map-tools" aria-label="지도 도구">
-          <button class="map-tool" id="zoomInButton" type="button" aria-label="지도 확대" title="지도 확대">+</button>
-          <button class="map-tool" id="zoomOutButton" type="button" aria-label="지도 축소" title="지도 축소">−</button>
-          <button class="map-tool" id="fitButton" type="button" aria-label="반경에 맞추기" title="반경에 맞추기">⌖</button>
-        </div>
-      </div>
-
-      <div class="location-card">
-        <div>
-          <span class="label">현재 위치</span>
-          <strong id="locationText">서울 성수동 기준 샘플</strong>
-        </div>
-        <span id="visibleCount">0명</span>
-      </div>
-    </section>
-
-    <aside class="side-pane" aria-label="러너 프로필">
-      <section class="panel leaderboard-panel">
+      <section class="panel ranking-panel">
         <div class="panel-heading">
           <div>
             <p class="eyebrow">Weekly</p>
-            <h2>이번 주 경쟁</h2>
+            <h2 id="rankingTitle">1 km 랭킹</h2>
           </div>
-          <span id="radiusLabel">1 km</span>
+          <span id="rankingCount">0명</span>
         </div>
-        <div class="stats-grid">
+        <div class="ranking-list" id="rankingList"></div>
+      </section>
+    </section>
+
+    <section class="app-view discover-view is-active" id="discoverView" aria-label="주변 러너 발견">
+      <section class="map-pane" aria-label="주변 러너 지도">
+        <header class="topbar">
           <div>
-            <span>참여</span>
-            <strong id="statRunners">0</strong>
+            <p class="eyebrow">RunCircle</p>
+            <h1>내 주변 러너</h1>
           </div>
+          <button class="icon-button" id="locateButton" type="button" aria-label="현재 위치 확인" title="현재 위치 확인">
+            <span aria-hidden="true">◎</span>
+          </button>
+        </header>
+
+        <div class="radius-control" role="group" aria-label="경쟁 반경 선택">
+          <button class="radius-option is-active" type="button" data-radius="1">1 km</button>
+          <button class="radius-option" type="button" data-radius="3">3 km</button>
+          <button class="radius-option" type="button" data-radius="5">5 km</button>
+        </div>
+
+        <div class="map-stage" id="mapStage">
+          <div class="map-canvas" id="mapCanvas" aria-label="Mapbox 지도"></div>
+          <div class="map-fallback" id="mapFallback">
+            <div>
+              <p class="eyebrow">Mapbox</p>
+              <h2>Access Token을 입력하면 실제 지도가 표시됩니다</h2>
+              <p>확대/축소, 내 위치 이동, 반경 원, 러너 핀과 정보창이 활성화됩니다.</p>
+            </div>
+            <form class="api-key-form" id="apiKeyForm">
+              <input id="apiKeyInput" type="password" autocomplete="off" placeholder="Mapbox public access token">
+              <button class="text-button" type="submit">적용</button>
+            </form>
+          </div>
+          <div class="map-tools" aria-label="지도 도구">
+            <button class="map-tool" id="zoomInButton" type="button" aria-label="지도 확대" title="지도 확대">+</button>
+            <button class="map-tool" id="zoomOutButton" type="button" aria-label="지도 축소" title="지도 축소">−</button>
+            <button class="map-tool" id="fitButton" type="button" aria-label="반경에 맞추기" title="반경에 맞추기">⌖</button>
+          </div>
+        </div>
+
+        <div class="location-card">
           <div>
-            <span>평균 페이스</span>
-            <strong id="statPace">0'00"</strong>
+            <span class="label">현재 위치</span>
+            <strong id="locationText">서울 성수동 기준 샘플</strong>
           </div>
-          <div>
-            <span>총 거리</span>
-            <strong id="statDistance">0 km</strong>
-          </div>
+          <span id="visibleCount">0명</span>
         </div>
       </section>
 
-      <section class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Nearby</p>
-            <h2>주변 러너</h2>
+      <aside class="side-pane" aria-label="러너 프로필">
+        <section class="panel leaderboard-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Weekly</p>
+              <h2>이번 주 경쟁</h2>
+            </div>
+            <span id="radiusLabel">1 km</span>
           </div>
-          <div class="runner-actions">
-            <button class="text-button" id="refreshRunnersButton" type="button" aria-label="다른 러너 보기">새로고침</button>
-            <button class="text-button" id="sortButton" type="button">거리순</button>
+          <div class="stats-grid">
+            <div>
+              <span>참여</span>
+              <strong id="statRunners">0</strong>
+            </div>
+            <div>
+              <span>평균 페이스</span>
+              <strong id="statPace">0'00"</strong>
+            </div>
+            <div>
+              <span>총 거리</span>
+              <strong id="statDistance">0 km</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Nearby</p>
+              <h2>주변 러너</h2>
+            </div>
+            <div class="runner-actions">
+              <button class="text-button" id="refreshRunnersButton" type="button" aria-label="다른 러너 보기">새로고침</button>
+              <button class="text-button" id="sortButton" type="button">거리순</button>
+            </div>
+          </div>
+          <div class="runner-list" id="runnerList"></div>
+        </section>
+      </aside>
+    </section>
+
+    <section class="app-view my-view" id="myView" aria-label="내 설정">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">My</p>
+          <h1>설정</h1>
+        </div>
+      </header>
+
+      <section class="panel profile-panel">
+        <div class="profile-summary">
+          <div class="avatar my-avatar">W</div>
+          <div>
+            <h2>나의 러닝 프로필</h2>
+            <p>주간 22.5 km · 평균 페이스 5'42"/km</p>
           </div>
         </div>
-        <div class="runner-list" id="runnerList"></div>
       </section>
 
       <section class="panel map-settings">
         <div class="panel-heading">
           <div>
             <p class="eyebrow">Map</p>
-            <h2>지도 보기</h2>
+            <h2>지도 스타일</h2>
           </div>
         </div>
         <div class="map-type-control" role="group" aria-label="지도 유형 선택">
@@ -106,8 +153,51 @@
           <button class="map-type-option" type="button" data-map-style="mapbox://styles/mapbox/satellite-streets-v12">위성</button>
         </div>
       </section>
-    </aside>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Token</p>
+            <h2>Mapbox 연결</h2>
+          </div>
+        </div>
+        <form class="api-key-form settings-token-form" id="settingsTokenForm">
+          <input id="settingsTokenInput" type="password" autocomplete="off" placeholder="Mapbox public access token">
+          <button class="text-button" type="submit">저장</button>
+        </form>
+      </section>
+
+      <section class="panel settings-list" aria-label="앱 설정">
+        <button class="settings-row" type="button">
+          <span>위치 공개</span>
+          <strong>주변 러너에게 표시</strong>
+        </button>
+        <button class="settings-row" type="button">
+          <span>경쟁 반경 기본값</span>
+          <strong id="defaultRadiusText">1 km</strong>
+        </button>
+        <button class="settings-row" type="button">
+          <span>알림</span>
+          <strong>주간 랭킹 변화</strong>
+        </button>
+      </section>
+    </section>
   </main>
+
+  <nav class="bottom-nav" aria-label="기본 메뉴">
+    <button class="bottom-nav-item" type="button" data-view="rankingView">
+      <span aria-hidden="true">≡</span>
+      랭킹
+    </button>
+    <button class="bottom-nav-item is-active" type="button" data-view="discoverView">
+      <span aria-hidden="true">⌖</span>
+      발견
+    </button>
+    <button class="bottom-nav-item" type="button" data-view="myView">
+      <span aria-hidden="true">●</span>
+      MY
+    </button>
+  </nav>
 
   <script src="app.js"></script>
 </body>
