@@ -26,18 +26,23 @@
       </div>
 
       <div class="map-stage" id="mapStage">
-        <div class="road road-a"></div>
-        <div class="road road-b"></div>
-        <div class="road road-c"></div>
-        <div class="park park-a"></div>
-        <div class="park park-b"></div>
-        <div class="radius-ring radius-ring-outer"></div>
-        <div class="radius-ring radius-ring-mid"></div>
-        <div class="radius-ring radius-ring-inner"></div>
-        <button class="me-marker" id="meMarker" type="button" aria-label="내 위치">
-          <span></span>
-        </button>
-        <div id="runnerMarkers"></div>
+        <div class="map-canvas" id="mapCanvas" aria-label="Google 지도"></div>
+        <div class="map-fallback" id="mapFallback">
+          <div>
+            <p class="eyebrow">Google Maps</p>
+            <h2>API 키를 입력하면 실제 지도가 표시됩니다</h2>
+            <p>확대/축소, 내 위치 이동, 반경 원, 러너 핀과 정보창이 활성화됩니다.</p>
+          </div>
+          <form class="api-key-form" id="apiKeyForm">
+            <input id="apiKeyInput" type="password" autocomplete="off" placeholder="Google Maps JavaScript API Key">
+            <button class="text-button" type="submit">적용</button>
+          </form>
+        </div>
+        <div class="map-tools" aria-label="지도 도구">
+          <button class="map-tool" id="zoomInButton" type="button" aria-label="지도 확대" title="지도 확대">+</button>
+          <button class="map-tool" id="zoomOutButton" type="button" aria-label="지도 축소" title="지도 축소">−</button>
+          <button class="map-tool" id="fitButton" type="button" aria-label="반경에 맞추기" title="반경에 맞추기">⌖</button>
+        </div>
       </div>
 
       <div class="location-card">
@@ -83,6 +88,20 @@
           <button class="text-button" id="sortButton" type="button">거리순</button>
         </div>
         <div class="runner-list" id="runnerList"></div>
+      </section>
+
+      <section class="panel map-settings">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Map</p>
+            <h2>지도 보기</h2>
+          </div>
+        </div>
+        <div class="map-type-control" role="group" aria-label="지도 유형 선택">
+          <button class="map-type-option is-active" type="button" data-map-type="roadmap">일반</button>
+          <button class="map-type-option" type="button" data-map-type="satellite">위성</button>
+          <button class="map-type-option" type="button" data-map-type="terrain">지형</button>
+        </div>
       </section>
     </aside>
   </main>
