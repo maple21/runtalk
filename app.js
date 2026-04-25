@@ -21,8 +21,22 @@ const runners = [
   { id: 10, name: "서진", icon: "A", color: "#14b8a6", distance: 1.72, pace: 354, weeklyKm: 24.9, angle: 32 },
   { id: 11, name: "나은", icon: "N", color: "#dc2626", distance: 2.44, pace: 388, weeklyKm: 19.6, angle: 248 },
   { id: 12, name: "현우", icon: "W", color: "#4f46e5", distance: 3.86, pace: 331, weeklyKm: 29.7, angle: 282 },
-  { id: 13, name: "채린", icon: "C", color: "#be185d", distance: 4.56, pace: 414, weeklyKm: 14.3, angle: 61 }
+  { id: 13, name: "채린", icon: "C", color: "#be185d", distance: 4.56, pace: 414, weeklyKm: 14.3, angle: 61 },
+  { id: 14, name: "윤재", icon: "V", color: "#7c3aed", distance: 1.18, pace: 362, weeklyKm: 17.9, angle: 188 },
+  { id: 15, name: "해원", icon: "O", color: "#0891b2", distance: 2.88, pace: 344, weeklyKm: 22.6, angle: 342 },
+  { id: 16, name: "지민", icon: "I", color: "#ea580c", distance: 2.32, pace: 396, weeklyKm: 15.5, angle: 102 },
+  { id: 17, name: "다온", icon: "B", color: "#16a34a", distance: 3.18, pace: 352, weeklyKm: 26.8, angle: 226 }
 ].map((runner) => ({ ...runner, position: offsetPosition(basePosition, runner.distance, runner.angle) }));
+
+const myWeeklyRuns = [
+  { day: "월", distance: 3.2, pace: 354, minutes: 19 },
+  { day: "화", distance: 0, pace: 0, minutes: 0 },
+  { day: "수", distance: 4.8, pace: 342, minutes: 27 },
+  { day: "목", distance: 2.7, pace: 371, minutes: 17 },
+  { day: "금", distance: 5.4, pace: 336, minutes: 30 },
+  { day: "토", distance: 6.1, pace: 348, minutes: 35 },
+  { day: "일", distance: 1.9, pace: 388, minutes: 12 }
+];
 
 let selectedRadius = 1;
 let selectedRunnerId = 1;
@@ -63,11 +77,24 @@ const zoomOutButton = document.querySelector("#zoomOutButton");
 const fitButton = document.querySelector("#fitButton");
 const defaultRadiusText = document.querySelector("#defaultRadiusText");
 const rivalQuotaText = document.querySelector("#rivalQuotaText");
+const myDistanceValue = document.querySelector("#myDistanceValue");
+const myRunDaysValue = document.querySelector("#myRunDaysValue");
+const myPaceValue = document.querySelector("#myPaceValue");
+const myTimeValue = document.querySelector("#myTimeValue");
+const weeklyDistanceChart = document.querySelector("#weeklyDistanceChart");
+const paceTrendChart = document.querySelector("#paceTrendChart");
+const timeTrendChart = document.querySelector("#timeTrendChart");
 
 function formatPace(seconds) {
   const minutes = Math.floor(seconds / 60);
   const rest = String(seconds % 60).padStart(2, "0");
   return `${minutes}'${rest}"`;
+}
+
+function formatDuration(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const rest = String(minutes % 60).padStart(2, "0");
+  return hours ? `${hours}h ${rest}m` : `${minutes}m`;
 }
 
 function offsetPosition(origin, distanceKm, angleDegree) {
@@ -315,6 +342,14 @@ function getVisibleCandidateCount() {
   return runners.filter((runner) => {
     return runner.distance <= selectedRadius && !runnerPreferences.hidden.has(runner.id);
   }).length;
+}
+
+function canRefreshRunners() {
+  const candidates = getSortedCandidates();
+  const fixedCount = candidates.filter((runner) => {
+    return runnerPreferences.rivals.has(runner.id) || runnerPreferences.pinned.has(runner.id);
+  }).length;
+  return candidates.length > maxVisibleRunners || candidates.length > Math.max(1, fixedCount);
 }
 
 function createCircleGeoJson(center, radiusKm, points = 96) {
@@ -657,9 +692,56 @@ function renderStats(visible) {
   statRunners.textContent = String(candidates.length);
   statPace.textContent = candidates.length ? formatPace(averagePace) : "0'00\"";
   statDistance.textContent = `${totalDistance.toFixed(1)} km`;
-  refreshRunnersButton.disabled = candidates.length <= maxVisibleRunners;
+  refreshRunnersButton.disabled = !canRefreshRunners();
   defaultRadiusText.textContent = `${selectedRadius} km`;
   rivalQuotaText.textContent = `${getRemainingRivalRequests()}/${maxWeeklyRivalRequests}`;
+}
+
+function renderMyStats() {
+  const activeRuns = myWeeklyRuns.filter((run) => run.distance > 0);
+  const totalDistance = myWeeklyRuns.reduce((sum, run) => sum + run.distance, 0);
+  const totalMinutes = myWeeklyRuns.reduce((sum, run) => sum + run.minutes, 0);
+  const averagePace = activeRuns.length
+    ? Math.round(activeRuns.reduce((sum, run) => sum + run.pace, 0) / activeRuns.length)
+    : 0;
+
+  myDistanceValue.textContent = `${totalDistance.toFixed(1)} km`;
+  myRunDaysValue.textContent = `${activeRuns.length}일`;
+  myPaceValue.textContent = formatPace(averagePace);
+  myTimeValue.textContent = formatDuration(totalMinutes);
+  renderDistanceBars();
+  renderMetricTrend(paceTrendChart, myWeeklyRuns.map((run) => run.pace ? Math.round(1000 / run.pace * 60) : 0), "km/h");
+  renderMetricTrend(timeTrendChart, myWeeklyRuns.map((run) => run.minutes), "분");
+}
+
+function renderDistanceBars() {
+  const maxDistance = Math.max(...myWeeklyRuns.map((run) => run.distance), 1);
+  weeklyDistanceChart.innerHTML = "";
+  myWeeklyRuns.forEach((run) => {
+    const item = document.createElement("div");
+    item.className = "day-bar-item";
+    item.innerHTML = `
+      <div class="day-bar-track">
+        <span style="height:${Math.max(8, run.distance / maxDistance * 100)}%"></span>
+      </div>
+      <strong>${run.distance ? run.distance.toFixed(1) : "-"}</strong>
+      <span>${run.day}</span>
+    `;
+    weeklyDistanceChart.appendChild(item);
+  });
+}
+
+function renderMetricTrend(target, values, unit) {
+  const maxValue = Math.max(...values, 1);
+  target.innerHTML = "";
+  values.forEach((value, index) => {
+    const point = document.createElement("div");
+    point.className = "trend-point";
+    point.style.height = `${Math.max(6, value / maxValue * 100)}%`;
+    point.innerHTML = `<span>${value || "-"}</span><small>${myWeeklyRuns[index].day}</small>`;
+    point.title = `${value || 0}${unit}`;
+    target.appendChild(point);
+  });
 }
 
 function renderRanking() {
@@ -692,6 +774,7 @@ function render() {
   renderList(visible);
   renderStats(visible);
   renderRanking();
+  renderMyStats();
   updateMap(visible);
 }
 

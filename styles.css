@@ -605,6 +605,128 @@ h3 {
   width: 100%;
 }
 
+.record-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.record-summary-grid div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #111114;
+}
+
+.record-summary-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.record-summary-grid strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.day-bar-chart {
+  height: 168px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  align-items: end;
+}
+
+.day-bar-item {
+  height: 100%;
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  gap: 5px;
+  min-width: 0;
+  text-align: center;
+}
+
+.day-bar-track {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  min-height: 0;
+  border-radius: 10px;
+  background: #101013;
+  overflow: hidden;
+}
+
+.day-bar-track span {
+  width: 100%;
+  display: block;
+  border-radius: 10px 10px 0 0;
+  background: var(--accent);
+}
+
+.day-bar-item strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.day-bar-item > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.compact-heading {
+  margin-bottom: 8px;
+}
+
+.trend-chart {
+  height: 132px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 7px;
+  align-items: end;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #111114;
+}
+
+.trend-point {
+  position: relative;
+  min-height: 6px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.trend-point span {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 5px);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+  transform: translateX(-50%);
+}
+
+.trend-point small {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 5px);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  transform: translateX(-50%);
+}
+
 .settings-list {
   display: grid;
   gap: 7px;
@@ -759,6 +881,22 @@ h3 {
 
   .ranking-item {
     grid-template-columns: 26px 32px minmax(0, 1fr) auto;
+  }
+
+  .record-summary-grid,
+  .chart-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .day-bar-chart {
+    height: 142px;
+    gap: 6px;
+  }
+
+  .trend-chart {
+    height: 118px;
+    gap: 5px;
+    padding: 8px;
   }
 
   .bottom-nav {
