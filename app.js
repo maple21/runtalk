@@ -1,5 +1,6 @@
 const basePosition = { lat: 37.5446, lng: 127.0557 };
 const storageKey = "runcircle.mapboxAccessToken";
+const runnerPreferenceStorageKey = "runcircle.runnerPreferences";
 const defaultMapStyle = "mapbox://styles/mapbox/streets-v12";
 const radiusSourceId = "competition-radius";
 const radiusFillLayerId = "competition-radius-fill";
@@ -27,6 +28,7 @@ let selectedRunnerId = 1;
 let sortMode = "distance";
 let runnerPage = 0;
 let selectedRankingRadius = 1;
+let openMenuRunnerId = null;
 let currentPosition = basePosition;
 let activeMapStyle = defaultMapStyle;
 let map;
@@ -34,6 +36,7 @@ let meMarker;
 let mapboxReady = false;
 let mapLoadError = false;
 const runnerMarkers = new Map();
+const runnerPreferences = loadRunnerPreferences();
 
 const mapCanvas = document.querySelector("#mapCanvas");
 const mapFallback = document.querySelector("#mapFallback");
@@ -80,7 +83,9 @@ function toLngLat(position) {
 }
 
 function getSortedCandidates() {
-  const visible = runners.filter((runner) => runner.distance <= selectedRadius);
+  const visible = runners.filter((runner) => {
+    return runner.distance <= selectedRadius && !runnerPreferences.hidden.has(runner.id);
+  });
   return [...visible].sort((a, b) => {
     if (sortMode === "weekly") {
       return b.weeklyKm - a.weeklyKm;
@@ -91,20 +96,120 @@ function getSortedCandidates() {
 
 function getRankingRunners(radius) {
   return runners
-    .filter((runner) => runner.distance <= radius)
+    .filter((runner) => runner.distance <= radius && !runnerPreferences.hidden.has(runner.id))
     .sort((a, b) => b.weeklyKm - a.weeklyKm);
 }
 
 function getVisibleRunners() {
   const candidates = getSortedCandidates();
-  if (candidates.length <= maxVisibleRunners) {
-    return candidates;
+  const pinned = candidates.filter((runner) => runnerPreferences.pinned.has(runner.id));
+  const unpinned = candidates.filter((runner) => !runnerPreferences.pinned.has(runner.id));
+  const fixed = pinned.slice(0, maxVisibleRunners);
+  const slots = maxVisibleRunners - fixed.length;
+
+  if (slots <= 0) {
+    return fixed;
   }
 
-  const start = (runnerPage * maxVisibleRunners) % candidates.length;
-  return Array.from({ length: maxVisibleRunners }, (_, index) => {
-    return candidates[(start + index) % candidates.length];
+  if (unpinned.length <= slots) {
+    return [...fixed, ...unpinned];
+  }
+
+  const weighted = getWeightedRunnerPool(unpinned);
+  const fill = [];
+  let cursor = (runnerPage * 3) % weighted.length;
+
+  while (fill.length < slots && cursor < weighted.length * 3) {
+    const runner = weighted[cursor % weighted.length];
+    if (!fill.some((item) => item.id === runner.id)) {
+      fill.push(runner);
+    }
+    cursor += 1;
+  }
+
+  return [...fixed, ...fill];
+}
+
+function getWeightedRunnerPool(candidates) {
+  const weighted = [];
+  candidates.forEach((runner) => {
+    weighted.push(runner);
+    if (runnerPreferences.interested.has(runner.id)) {
+      weighted.push(runner, runner);
+    }
   });
+
+  return weighted
+    .map((runner, index) => ({ runner, score: getRunnerShuffleScore(runner.id + index * 17, runnerPage) }))
+    .sort((a, b) => a.score - b.score)
+    .map((item) => item.runner);
+}
+
+function getRunnerShuffleScore(id, seed) {
+  const value = Math.sin(id * 9301 + seed * 49297) * 10000;
+  return value - Math.floor(value);
+}
+
+function loadRunnerPreferences() {
+  const fallback = { pinned: new Set(), interested: new Set(), hidden: new Set() };
+  try {
+    const saved = JSON.parse(localStorage.getItem(runnerPreferenceStorageKey));
+    return {
+      pinned: new Set(saved?.pinned ?? []),
+      interested: new Set(saved?.interested ?? []),
+      hidden: new Set(saved?.hidden ?? [])
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveRunnerPreferences() {
+  localStorage.setItem(runnerPreferenceStorageKey, JSON.stringify({
+    pinned: [...runnerPreferences.pinned],
+    interested: [...runnerPreferences.interested],
+    hidden: [...runnerPreferences.hidden]
+  }));
+}
+
+function setRunnerPreference(id, preference) {
+  runnerPreferences.pinned.delete(id);
+  runnerPreferences.interested.delete(id);
+  runnerPreferences.hidden.delete(id);
+
+  if (preference === "pin") {
+    runnerPreferences.pinned.add(id);
+  }
+  if (preference === "interest") {
+    runnerPreferences.interested.add(id);
+  }
+  if (preference === "hide") {
+    runnerPreferences.hidden.add(id);
+  }
+
+  if (preference === "hide" && selectedRunnerId === id) {
+    selectedRunnerId = null;
+  }
+
+  openMenuRunnerId = null;
+  saveRunnerPreferences();
+  render();
+}
+
+function getRunnerPreferenceLabel(id) {
+  if (runnerPreferences.pinned.has(id)) {
+    return "핀";
+  }
+  if (runnerPreferences.interested.has(id)) {
+    return "흥미";
+  }
+  return "";
+}
+
+function getVisibleCandidateCount() {
+  return runners.filter((runner) => {
+    return runner.distance <= selectedRadius && !runnerPreferences.hidden.has(runner.id);
+  }).length;
 }
 
 function createCircleGeoJson(center, radiusKm, points = 96) {
@@ -345,18 +450,30 @@ function fitToRadius() {
 function renderList(visible) {
   runnerList.innerHTML = "";
   visible.forEach((runner, index) => {
+    const preferenceLabel = getRunnerPreferenceLabel(runner.id);
     const card = document.createElement("article");
     card.className = `runner-card${runner.id === selectedRunnerId ? " is-selected" : ""}`;
     card.tabIndex = 0;
     card.innerHTML = `
       <div class="avatar" style="background:${runner.color}">${runner.icon}</div>
       <div>
-        <h3>${runner.name}</h3>
+        <h3>${runner.name}${preferenceLabel ? `<span>${preferenceLabel}</span>` : ""}</h3>
         <p>${runner.distance.toFixed(2)} km 근처 · ${formatPace(runner.pace)}/km · 주간 ${runner.weeklyKm.toFixed(1)} km</p>
       </div>
       <span class="runner-rank">#${index + 1}</span>
+      <button class="runner-menu-button" type="button" aria-label="${runner.name} 메뉴" data-menu-runner="${runner.id}">...</button>
+      <div class="runner-menu${openMenuRunnerId === runner.id ? " is-open" : ""}">
+        <button type="button" data-runner-action="pin" data-runner-id="${runner.id}">${runnerPreferences.pinned.has(runner.id) ? "핀 해제" : "핀"}</button>
+        <button type="button" data-runner-action="interest" data-runner-id="${runner.id}">${runnerPreferences.interested.has(runner.id) ? "흥미 해제" : "흥미"}</button>
+        <button type="button" data-runner-action="hide" data-runner-id="${runner.id}">무관심</button>
+      </div>
     `;
-    card.addEventListener("click", () => selectRunner(runner.id, true));
+    card.addEventListener("click", (event) => {
+      if (event.target.closest(".runner-menu, .runner-menu-button")) {
+        return;
+      }
+      selectRunner(runner.id, true);
+    });
     card.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
@@ -364,6 +481,32 @@ function renderList(visible) {
       }
     });
     runnerList.appendChild(card);
+  });
+
+  runnerList.querySelectorAll(".runner-menu-button").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const id = Number(button.dataset.menuRunner);
+      openMenuRunnerId = openMenuRunnerId === id ? null : id;
+      renderList(getVisibleRunners());
+    });
+  });
+
+  runnerList.querySelectorAll("[data-runner-action]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const id = Number(button.dataset.runnerId);
+      const action = button.dataset.runnerAction;
+      if (action === "pin" && runnerPreferences.pinned.has(id)) {
+        setRunnerPreference(id, null);
+        return;
+      }
+      if (action === "interest" && runnerPreferences.interested.has(id)) {
+        setRunnerPreference(id, null);
+        return;
+      }
+      setRunnerPreference(id, action);
+    });
   });
 }
 
@@ -375,7 +518,7 @@ function renderStats(visible) {
     : 0;
 
   radiusLabel.textContent = `${selectedRadius} km`;
-  visibleCount.textContent = `${visible.length}/${candidates.length}명`;
+  visibleCount.textContent = `${visible.length}/${getVisibleCandidateCount()}명`;
   statRunners.textContent = String(candidates.length);
   statPace.textContent = candidates.length ? formatPace(averagePace) : "0'00\"";
   statDistance.textContent = `${totalDistance.toFixed(1)} km`;
@@ -484,8 +627,16 @@ sortButton.addEventListener("click", () => {
 });
 
 refreshRunnersButton.addEventListener("click", () => {
+  openMenuRunnerId = null;
   runnerPage += 1;
   render();
+});
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".runner-menu, .runner-menu-button")) {
+    openMenuRunnerId = null;
+    renderList(getVisibleRunners());
+  }
 });
 
 zoomInButton.addEventListener("click", () => {

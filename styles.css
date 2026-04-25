@@ -441,8 +441,9 @@ h3 {
   grid-template-columns: 34px minmax(0, 1fr) auto;
   gap: 9px;
   min-height: 52px;
-  padding: 7px 9px;
+  padding: 7px 38px 7px 9px;
   cursor: pointer;
+  position: relative;
 }
 
 .runner-card.is-selected {
@@ -470,10 +471,82 @@ h3 {
   line-height: 1.25;
 }
 
+.runner-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.runner-card h3 span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: #8abfff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .runner-rank {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
+}
+
+.runner-menu-button {
+  position: absolute;
+  right: 6px;
+  top: 5px;
+  width: 28px;
+  height: 24px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.runner-menu-button:hover,
+.runner-menu-button:focus-visible {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.runner-menu {
+  position: absolute;
+  right: 6px;
+  top: 32px;
+  z-index: 8;
+  min-width: 116px;
+  display: none;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #222228;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+}
+
+.runner-menu.is-open {
+  display: grid;
+}
+
+.runner-menu button {
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.runner-menu button:hover,
+.runner-menu button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .ranking-panel {
