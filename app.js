@@ -6,6 +6,7 @@ const radiusSourceId = "competition-radius";
 const radiusFillLayerId = "competition-radius-fill";
 const radiusLineLayerId = "competition-radius-line";
 const maxVisibleRunners = 7;
+const maxWeeklyRivalRequests = 3;
 
 const runners = [
   { id: 1, name: "민서", icon: "M", color: "#286fdd", distance: 0.42, pace: 326, weeklyKm: 28.4, angle: -38 },
@@ -61,6 +62,7 @@ const zoomInButton = document.querySelector("#zoomInButton");
 const zoomOutButton = document.querySelector("#zoomOutButton");
 const fitButton = document.querySelector("#fitButton");
 const defaultRadiusText = document.querySelector("#defaultRadiusText");
+const rivalQuotaText = document.querySelector("#rivalQuotaText");
 
 function formatPace(seconds) {
   const minutes = Math.floor(seconds / 60);
@@ -102,9 +104,14 @@ function getRankingRunners(radius) {
 
 function getVisibleRunners() {
   const candidates = getSortedCandidates();
-  const pinned = candidates.filter((runner) => runnerPreferences.pinned.has(runner.id));
-  const unpinned = candidates.filter((runner) => !runnerPreferences.pinned.has(runner.id));
-  const fixed = pinned.slice(0, maxVisibleRunners);
+  const rivals = candidates.filter((runner) => runnerPreferences.rivals.has(runner.id));
+  const pinned = candidates.filter((runner) => {
+    return runnerPreferences.pinned.has(runner.id) && !runnerPreferences.rivals.has(runner.id);
+  });
+  const unpinned = candidates.filter((runner) => {
+    return !runnerPreferences.pinned.has(runner.id) && !runnerPreferences.rivals.has(runner.id);
+  });
+  const fixed = [...rivals, ...pinned].slice(0, maxVisibleRunners);
   const slots = maxVisibleRunners - fixed.length;
 
   if (slots <= 0) {
@@ -151,24 +158,47 @@ function getRunnerShuffleScore(id, seed) {
 }
 
 function loadRunnerPreferences() {
-  const fallback = { pinned: new Set(), interested: new Set(), hidden: new Set() };
+  const fallback = createEmptyRunnerPreferences();
   try {
     const saved = JSON.parse(localStorage.getItem(runnerPreferenceStorageKey));
     return {
       pinned: new Set(saved?.pinned ?? []),
       interested: new Set(saved?.interested ?? []),
-      hidden: new Set(saved?.hidden ?? [])
+      hidden: new Set(saved?.hidden ?? []),
+      rivals: new Set(saved?.rivals ?? []),
+      rivalPending: new Set(saved?.rivalPending ?? []),
+      rivalRejected: new Set(saved?.rivalRejected ?? []),
+      rivalRequestWeek: saved?.rivalRequestWeek ?? getCurrentWeekKey(),
+      rivalRequestCount: Number(saved?.rivalRequestCount ?? 0)
     };
   } catch {
     return fallback;
   }
 }
 
+function createEmptyRunnerPreferences() {
+  return {
+    pinned: new Set(),
+    interested: new Set(),
+    hidden: new Set(),
+    rivals: new Set(),
+    rivalPending: new Set(),
+    rivalRejected: new Set(),
+    rivalRequestWeek: getCurrentWeekKey(),
+    rivalRequestCount: 0
+  };
+}
+
 function saveRunnerPreferences() {
   localStorage.setItem(runnerPreferenceStorageKey, JSON.stringify({
     pinned: [...runnerPreferences.pinned],
     interested: [...runnerPreferences.interested],
-    hidden: [...runnerPreferences.hidden]
+    hidden: [...runnerPreferences.hidden],
+    rivals: [...runnerPreferences.rivals],
+    rivalPending: [...runnerPreferences.rivalPending],
+    rivalRejected: [...runnerPreferences.rivalRejected],
+    rivalRequestWeek: runnerPreferences.rivalRequestWeek,
+    rivalRequestCount: runnerPreferences.rivalRequestCount
   }));
 }
 
@@ -185,6 +215,10 @@ function setRunnerPreference(id, preference) {
   }
   if (preference === "hide") {
     runnerPreferences.hidden.add(id);
+    runnerPreferences.pinned.delete(id);
+    runnerPreferences.interested.delete(id);
+    runnerPreferences.rivals.delete(id);
+    runnerPreferences.rivalPending.delete(id);
   }
 
   if (preference === "hide" && selectedRunnerId === id) {
@@ -196,7 +230,78 @@ function setRunnerPreference(id, preference) {
   render();
 }
 
+function getCurrentWeekKey(date = new Date()) {
+  const start = new Date(date.getFullYear(), 0, 1);
+  const day = Math.floor((date - start) / 86400000);
+  const week = Math.ceil((day + start.getDay() + 1) / 7);
+  return `${date.getFullYear()}-${String(week).padStart(2, "0")}`;
+}
+
+function refreshRivalWeek() {
+  const currentWeek = getCurrentWeekKey();
+  if (runnerPreferences.rivalRequestWeek !== currentWeek) {
+    runnerPreferences.rivalRequestWeek = currentWeek;
+    runnerPreferences.rivalRequestCount = 0;
+    saveRunnerPreferences();
+  }
+}
+
+function getRemainingRivalRequests() {
+  refreshRivalWeek();
+  return Math.max(0, maxWeeklyRivalRequests - runnerPreferences.rivalRequestCount);
+}
+
+function requestRival(id) {
+  refreshRivalWeek();
+  if (runnerPreferences.rivalRejected.has(id) || runnerPreferences.rivals.has(id) || runnerPreferences.rivalPending.has(id)) {
+    return;
+  }
+  if (getRemainingRivalRequests() <= 0) {
+    window.alert("이번 주 라이벌 신청 기회를 모두 사용했습니다.");
+    return;
+  }
+
+  runnerPreferences.rivalRequestCount += 1;
+  runnerPreferences.rivalPending.add(id);
+  runnerPreferences.pinned.delete(id);
+  runnerPreferences.interested.delete(id);
+  openMenuRunnerId = null;
+  saveRunnerPreferences();
+  window.alert("라이벌 신청 알림을 보냈습니다. 상대가 수락하면 대결이 성사됩니다.");
+  render();
+}
+
+function resolveRivalRequest(id, accepted) {
+  runnerPreferences.rivalPending.delete(id);
+  if (accepted) {
+    runnerPreferences.rivals.add(id);
+    runnerPreferences.rivalRejected.delete(id);
+  } else {
+    runnerPreferences.rivals.delete(id);
+    runnerPreferences.rivalRejected.add(id);
+  }
+  openMenuRunnerId = null;
+  saveRunnerPreferences();
+  render();
+}
+
+function clearRival(id) {
+  runnerPreferences.rivals.delete(id);
+  openMenuRunnerId = null;
+  saveRunnerPreferences();
+  render();
+}
+
 function getRunnerPreferenceLabel(id) {
+  if (runnerPreferences.rivals.has(id)) {
+    return "라이벌";
+  }
+  if (runnerPreferences.rivalPending.has(id)) {
+    return "대기";
+  }
+  if (runnerPreferences.rivalRejected.has(id)) {
+    return "거절됨";
+  }
   if (runnerPreferences.pinned.has(id)) {
     return "핀";
   }
@@ -451,6 +556,17 @@ function renderList(visible) {
   runnerList.innerHTML = "";
   visible.forEach((runner, index) => {
     const preferenceLabel = getRunnerPreferenceLabel(runner.id);
+    const rivalBlocked = runnerPreferences.rivalRejected.has(runner.id);
+    const rivalPending = runnerPreferences.rivalPending.has(runner.id);
+    const isRival = runnerPreferences.rivals.has(runner.id);
+    const rivalRequestsLeft = getRemainingRivalRequests();
+    const rivalActionLabel = rivalBlocked
+      ? "거절됨"
+      : rivalPending
+        ? "응답 대기"
+        : isRival
+          ? "라이벌 해제"
+          : `라이벌 신청 ${rivalRequestsLeft}/3`;
     const card = document.createElement("article");
     card.className = `runner-card${runner.id === selectedRunnerId ? " is-selected" : ""}`;
     card.tabIndex = 0;
@@ -463,6 +579,9 @@ function renderList(visible) {
       <span class="runner-rank">#${index + 1}</span>
       <button class="runner-menu-button" type="button" aria-label="${runner.name} 메뉴" data-menu-runner="${runner.id}">...</button>
       <div class="runner-menu${openMenuRunnerId === runner.id ? " is-open" : ""}">
+        <button type="button" data-runner-action="rival" data-runner-id="${runner.id}" ${rivalBlocked || rivalPending || (!isRival && rivalRequestsLeft <= 0) ? "disabled" : ""}>${rivalActionLabel}</button>
+        ${rivalPending ? `<button type="button" data-runner-action="rival-accept" data-runner-id="${runner.id}">상대 수락</button>` : ""}
+        ${rivalPending ? `<button type="button" data-runner-action="rival-reject" data-runner-id="${runner.id}">상대 거절</button>` : ""}
         <button type="button" data-runner-action="pin" data-runner-id="${runner.id}">${runnerPreferences.pinned.has(runner.id) ? "핀 해제" : "핀"}</button>
         <button type="button" data-runner-action="interest" data-runner-id="${runner.id}">${runnerPreferences.interested.has(runner.id) ? "흥미 해제" : "흥미"}</button>
         <button type="button" data-runner-action="hide" data-runner-id="${runner.id}">무관심</button>
@@ -505,6 +624,22 @@ function renderList(visible) {
         setRunnerPreference(id, null);
         return;
       }
+      if (action === "rival") {
+        if (runnerPreferences.rivals.has(id)) {
+          clearRival(id);
+          return;
+        }
+        requestRival(id);
+        return;
+      }
+      if (action === "rival-accept") {
+        resolveRivalRequest(id, true);
+        return;
+      }
+      if (action === "rival-reject") {
+        resolveRivalRequest(id, false);
+        return;
+      }
       setRunnerPreference(id, action);
     });
   });
@@ -524,6 +659,7 @@ function renderStats(visible) {
   statDistance.textContent = `${totalDistance.toFixed(1)} km`;
   refreshRunnersButton.disabled = candidates.length <= maxVisibleRunners;
   defaultRadiusText.textContent = `${selectedRadius} km`;
+  rivalQuotaText.textContent = `${getRemainingRivalRequests()}/${maxWeeklyRivalRequests}`;
 }
 
 function renderRanking() {

@@ -519,7 +519,7 @@ h3 {
   right: 6px;
   top: 32px;
   z-index: 8;
-  min-width: 116px;
+  min-width: 142px;
   display: none;
   padding: 5px;
   border: 1px solid var(--line);
@@ -547,6 +547,12 @@ h3 {
 .runner-menu button:hover,
 .runner-menu button:focus-visible {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.runner-menu button:disabled {
+  cursor: not-allowed;
+  color: var(--subtle);
+  opacity: 0.72;
 }
 
 .ranking-panel {
